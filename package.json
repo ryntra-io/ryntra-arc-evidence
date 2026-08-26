@@ -1,0 +1,44 @@
+{
+  "name": "ryntra-arc-evidence",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "license": "Apache-2.0",
+  "description": "Decision and settlement evidence for programmable money: the typed kernel, the OpenAPI contract, a headless SDK and offline receipt verification.",
+  "homepage": "https://ryntra.io",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ryntra-io/ryntra-arc-evidence.git"
+  },
+  "bugs": {
+    "url": "https://github.com/ryntra-io/ryntra-arc-evidence/issues"
+  },
+  "author": "Dmytro Plavutskyi",
+  "packageManager": "npm@10.9.8",
+  "engines": {
+    "node": ">=22 <25"
+  },
+  "workspaces": [
+    "packages/*"
+  ],
+  "scripts": {
+    "typecheck": "tsc --noEmit --incremental false",
+    "lint": "eslint lib packages examples scripts --max-warnings=0",
+    "test": "node --test lib/guard/kernel.test.mjs lib/guard/contracts.test.mjs lib/guard/service.test.mjs lib/guard/service-query.test.mjs lib/guard/schemas.test.mjs packages/guard-sdk/src/index.test.mjs",
+    "openapi:validate": "validate-api openapi/ryntra-guard-v1.yaml",
+    "verify:boundaries": "node scripts/verify-boundaries.mjs",
+    "verify": "npm run lint && npm run typecheck && npm test && npm run openapi:validate && npm run verify:boundaries"
+  },
+  "dependencies": {
+    "viem": "2.55.11",
+    "zod": "4.4.3"
+  },
+  "devDependencies": {
+    "@seriousme/openapi-schema-validator": "2.9.0",
+    "@types/node": "24.10.0",
+    "@typescript-eslint/eslint-plugin": "8.66.0",
+    "@typescript-eslint/parser": "8.66.0",
+    "eslint": "9.39.5",
+    "typescript": "5.9.3"
+  }
+}

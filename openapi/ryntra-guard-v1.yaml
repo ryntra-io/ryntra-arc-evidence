@@ -1,0 +1,1494 @@
+openapi: 3.1.0
+info:
+  title: Ryntra Guard API
+  version: 1.0.0
+  description: >-
+    A provider-neutral Decision & Settlement Evidence Layer prototype for Arc
+    Testnet. It normalizes intent, records evidence provenance and freshness,
+    evaluates versioned financial policy, preserves explicit human authorization,
+    and reconciles expected versus actual effects. It is not audited, not deployed
+    by this source change, and not a wallet or transaction signer.
+servers:
+  - url: http://localhost:3000
+    description: Local prototype
+tags:
+  - name: Intents
+  - name: Evaluations
+  - name: Executions
+  - name: Payouts
+  - name: Payout policies
+  - name: Payout beneficiaries
+  - name: Capabilities
+paths:
+  /v1/intents:
+    get:
+      tags: [Intents]
+      summary: List the tenant-scoped intent ledger, newest first
+      security: [{ BearerAuth: [] }]
+      parameters:
+        - $ref: '#/components/parameters/ListLimit'
+        - $ref: '#/components/parameters/CorrelationId'
+      responses:
+        '200': { $ref: '#/components/responses/DataResponse' }
+        '401': { $ref: '#/components/responses/ErrorResponse' }
+        '403': { $ref: '#/components/responses/ErrorResponse' }
+    post:
+      tags: [Intents]
+      summary: Create a versioned execution intent
+      security: [{ BearerAuth: [] }]
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+        - $ref: '#/components/parameters/CorrelationId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/CreateIntentRequest' }
+      responses:
+        '201': { $ref: '#/components/responses/DataResponse' }
+        '400': { $ref: '#/components/responses/ErrorResponse' }
+        '401': { $ref: '#/components/responses/ErrorResponse' }
+        '409': { $ref: '#/components/responses/ErrorResponse' }
+  /v1/intents/{intentId}:
+    get:
+      tags: [Intents]
+      summary: Get one tenant-scoped intent
+      security: [{ BearerAuth: [] }]
+      parameters:
+        - $ref: '#/components/parameters/IntentId'
+        - $ref: '#/components/parameters/CorrelationId'
+      responses:
+        '200': { $ref: '#/components/responses/DataResponse' }
+        '401': { $ref: '#/components/responses/ErrorResponse' }
+        '403': { $ref: '#/components/responses/ErrorResponse' }
+  /v1/intents/{intentId}/preflight:
+    post:
+      tags: [Evaluations]
+      summary: Evaluate current evidence against the exact server-owned immutable policy
+      security: [{ BearerAuth: [] }]
+      parameters:
+        - $ref: '#/components/parameters/IntentId'
+        - $ref: '#/components/parameters/IdempotencyKey'
+        - $ref: '#/components/parameters/CorrelationId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [evidence]
+              properties:
+                evidence:
+                  type: array
+                  minItems: 1
+                  maxItems: 64
+                  items: { $ref: '#/components/schemas/EvidenceItem' }
+      responses:
+        '200': { $ref: '#/components/responses/EvaluationResponse' }
+        '400': { $ref: '#/components/responses/ErrorResponse' }
+        '409': { $ref: '#/components/responses/ErrorResponse' }
+        '422': { $ref: '#/components/responses/ErrorResponse' }
+  /v1/evaluations/{evaluationId}:
+    get:
+      tags: [Evaluations]
+      summary: Get a tenant-scoped public evaluation
+      security: [{ BearerAuth: [] }]
+      parameters:
+        - $ref: '#/components/parameters/EvaluationId'
+        - $ref: '#/components/parameters/CorrelationId'
+      responses:
+        '200': { $ref: '#/components/responses/EvaluationResponse' }
+        '401': { $ref: '#/components/responses/ErrorResponse' }
+        '403': { $ref: '#/components/responses/ErrorResponse' }
+  /v1/intents/{intentId}/authorize:
+    post:
+      tags: [Intents]
+      summary: Record explicit human authorization for the exact fingerprint
+      description: This record is separate from the later user-wallet transaction signature.
+      security: [{ BearerAuth: [] }]
+      parameters:
+        - $ref: '#/components/parameters/IntentId'
+        - $ref: '#/components/parameters/IdempotencyKey'
+        - $ref: '#/components/parameters/CorrelationId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/AuthorizeRequest' }
+      responses:
+        '200': { $ref: '#/components/responses/AuthorizationResponse' }
+        '409': { $ref: '#/components/responses/ErrorResponse' }
+        '422': { $ref: '#/components/responses/ErrorResponse' }
+  /v1/intents/{intentId}/executions:
+    post:
+      tags: [Executions]
+      summary: Record or reconcile a partner-executed Arc Testnet transaction
+      description: Ryntra does not sign or broadcast the transaction.
+      security: [{ BearerAuth: [] }]
+      parameters:
+        - $ref: '#/components/parameters/IntentId'
+        - $ref: '#/components/parameters/IdempotencyKey'
+        - $ref: '#/components/parameters/CorrelationId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              oneOf:
+                - $ref: '#/components/schemas/RecordExecutionRequest'
+                - $ref: '#/components/schemas/ReconcileExecutionRequest'
+      responses:
+        '200': { $ref: '#/components/responses/DataResponse' }
+        '202': { $ref: '#/components/responses/DataResponse' }
+        '409': { $ref: '#/components/responses/ErrorResponse' }
+  /v1/intents/{intentId}/status:
+    get:
+      tags: [Executions]
+      summary: Get independent evidence, policy-decision, authorization, execution, and reconciliation states
+      security: [{ BearerAuth: [] }]
+      parameters:
+        - $ref: '#/components/parameters/IntentId'
+        - $ref: '#/components/parameters/CorrelationId'
+      responses:
+        '200': { $ref: '#/components/responses/StatusResponse' }
+  /v1/intents/{intentId}/receipt:
+    get:
+      tags: [Executions]
+      summary: Get a finalized intent-to-settlement evidence receipt
+      security: [{ BearerAuth: [] }]
+      parameters:
+        - $ref: '#/components/parameters/IntentId'
+        - $ref: '#/components/parameters/CorrelationId'
+      responses:
+        '200': { $ref: '#/components/responses/ReceiptResponse' }
+        '409': { $ref: '#/components/responses/ErrorResponse' }
+  /v1/payouts:
+    get:
+      tags: [Payouts]
+      summary: List the authenticated tenant's Arc payout ledger
+      security: [{ PayoutPrincipalAuth: [] }]
+      parameters:
+        - $ref: '#/components/parameters/ListLimit'
+        - $ref: '#/components/parameters/ListOffset'
+        - $ref: '#/components/parameters/CorrelationId'
+      responses:
+        '200': { $ref: '#/components/responses/PayoutPageResponse' }
+        '401': { $ref: '#/components/responses/ErrorResponse' }
+        '403': { $ref: '#/components/responses/ErrorResponse' }
+    post:
+      tags: [Payouts]
+      summary: Create one Arc Public Testnet USDC payout instruction
+      description: Creates one business payout record linked one-to-one to an existing Guard SEND intent. It does not sign or broadcast.
+      security: [{ PayoutPrincipalAuth: [] }]
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+        - $ref: '#/components/parameters/CorrelationId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/CreatePayoutRequest' }
+      responses:
+        '201': { $ref: '#/components/responses/DataResponse' }
+        '400': { $ref: '#/components/responses/ErrorResponse' }
+        '401': { $ref: '#/components/responses/ErrorResponse' }
+        '403': { $ref: '#/components/responses/ErrorResponse' }
+        '409': { $ref: '#/components/responses/ErrorResponse' }
+  /v1/payouts/{payoutId}:
+    get:
+      tags: [Payouts]
+      summary: Get one tenant-scoped payout and its bound artifacts
+      security: [{ PayoutPrincipalAuth: [] }]
+      parameters:
+        - $ref: '#/components/parameters/PayoutId'
+        - $ref: '#/components/parameters/CorrelationId'
+      responses:
+        '200': { $ref: '#/components/responses/DataResponse' }
+        '404': { $ref: '#/components/responses/ErrorResponse' }
+  /v1/payouts/{payoutId}/preflight:
+    post:
+      tags: [Payouts]
+      summary: Collect fresh Arc evidence and evaluate the exact payout
+      description: Every call re-reads evidence and supersedes earlier approvals. Missing or conflicting evidence fails closed.
+      security: [{ PayoutPrincipalAuth: [] }]
+      parameters:
+        - $ref: '#/components/parameters/PayoutId'
+        - $ref: '#/components/parameters/IdempotencyKey'
+        - $ref: '#/components/parameters/CorrelationId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/EmptyObject' }
+      responses:
+        '200': { $ref: '#/components/responses/DataResponse' }
+        '409': { $ref: '#/components/responses/ErrorResponse' }
+        '422': { $ref: '#/components/responses/ErrorResponse' }
+  /v1/payouts/{payoutId}/approvals:
+    post:
+      tags: [Payouts]
+      summary: Approve or reject the exact payout fingerprint
+      description: The APPROVER role, tenant and principal are derived only from the bearer registry. The requester cannot approve their own payout.
+      security: [{ PayoutPrincipalAuth: [] }]
+      parameters:
+        - $ref: '#/components/parameters/PayoutId'
+        - $ref: '#/components/parameters/IdempotencyKey'
+        - $ref: '#/components/parameters/CorrelationId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/PayoutApprovalRequest' }
+      responses:
+        '200': { $ref: '#/components/responses/DataResponse' }
+        '403': { $ref: '#/components/responses/ErrorResponse' }
+        '409': { $ref: '#/components/responses/ErrorResponse' }
+        '422': { $ref: '#/components/responses/ErrorResponse' }
+  /v1/payouts/{payoutId}/execution-package:
+    get:
+      tags: [Payouts]
+      summary: Get the ten-field unsigned wallet transaction package
+      description: The response contains no signature, key, broadcast function or bearer credential.
+      security: [{ PayoutPrincipalAuth: [] }]
+      parameters:
+        - $ref: '#/components/parameters/PayoutId'
+        - $ref: '#/components/parameters/CorrelationId'
+      responses:
+        '200': { $ref: '#/components/responses/PayoutExecutionPackageResponse' }
+        '403': { $ref: '#/components/responses/ErrorResponse' }
+        '409': { $ref: '#/components/responses/ErrorResponse' }
+  /v1/payouts/{payoutId}/executions:
+    post:
+      tags: [Payouts]
+      summary: Record an external transaction hash and independently reconcile it
+      description: Client-supplied actual effects are not accepted. The hash is stored as broadcast uncertainty before any Arc RPC read.
+      security: [{ PayoutPrincipalAuth: [] }]
+      parameters:
+        - $ref: '#/components/parameters/PayoutId'
+        - $ref: '#/components/parameters/IdempotencyKey'
+        - $ref: '#/components/parameters/CorrelationId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/PayoutExecutionRequest' }
+      responses:
+        '200': { $ref: '#/components/responses/DataResponse' }
+        '202': { $ref: '#/components/responses/DataResponse' }
+        '403': { $ref: '#/components/responses/ErrorResponse' }
+        '409': { $ref: '#/components/responses/ErrorResponse' }
+  /v1/payouts/{payoutId}/status:
+    get:
+      tags: [Payouts]
+      summary: Get the payout lifecycle projected from stored artifacts
+      security: [{ PayoutPrincipalAuth: [] }]
+      parameters:
+        - $ref: '#/components/parameters/PayoutId'
+        - $ref: '#/components/parameters/CorrelationId'
+      responses:
+        '200': { $ref: '#/components/responses/DataResponse' }
+        '404': { $ref: '#/components/responses/ErrorResponse' }
+  /v1/payouts/{payoutId}/receipt:
+    get:
+      tags: [Payouts]
+      summary: Get the finalized DecisionSettlementReceipt 1.2.0
+      description: AUDITOR receives the authenticated full record. Other permitted payout roles receive a redacted projection with internal requester and approver references removed.
+      security: [{ PayoutPrincipalAuth: [] }]
+      parameters:
+        - $ref: '#/components/parameters/PayoutId'
+        - $ref: '#/components/parameters/CorrelationId'
+      responses:
+        '200': { $ref: '#/components/responses/ReceiptResponse' }
+        '404': { $ref: '#/components/responses/ErrorResponse' }
+        '409': { $ref: '#/components/responses/ErrorResponse' }
+  /v1/payout-policies:
+    get:
+      tags: [Payout policies]
+      summary: List immutable payout policy versions for the authenticated tenant
+      security: [{ PayoutPrincipalAuth: [] }]
+      parameters:
+        - $ref: '#/components/parameters/ListLimit'
+        - $ref: '#/components/parameters/ListOffset'
+        - $ref: '#/components/parameters/CorrelationId'
+      responses:
+        '200': { $ref: '#/components/responses/PayoutPageResponse' }
+        '403': { $ref: '#/components/responses/ErrorResponse' }
+  /v1/payout-policies/{policyId}/versions:
+    post:
+      tags: [Payout policies]
+      summary: Create an immutable tenant-owned payout policy version
+      security: [{ PayoutPrincipalAuth: [] }]
+      parameters:
+        - $ref: '#/components/parameters/PolicyId'
+        - $ref: '#/components/parameters/IdempotencyKey'
+        - $ref: '#/components/parameters/CorrelationId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/PayoutPolicyVersionRequest' }
+      responses:
+        '201': { $ref: '#/components/responses/DataResponse' }
+        '400': { $ref: '#/components/responses/ErrorResponse' }
+        '403': { $ref: '#/components/responses/ErrorResponse' }
+  /v1/payout-policies/{policyId}/versions/{version}/activate:
+    post:
+      tags: [Payout policies]
+      summary: Activate or roll back to an immutable payout policy version
+      security: [{ PayoutPrincipalAuth: [] }]
+      parameters:
+        - $ref: '#/components/parameters/PolicyId'
+        - $ref: '#/components/parameters/Version'
+        - $ref: '#/components/parameters/IdempotencyKey'
+        - $ref: '#/components/parameters/CorrelationId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/EmptyObject' }
+      responses:
+        '200': { $ref: '#/components/responses/DataResponse' }
+        '403': { $ref: '#/components/responses/ErrorResponse' }
+        '404': { $ref: '#/components/responses/ErrorResponse' }
+  /v1/payout-beneficiaries:
+    get:
+      tags: [Payout beneficiaries]
+      summary: List immutable beneficiary versions for the authenticated tenant
+      security: [{ PayoutPrincipalAuth: [] }]
+      parameters:
+        - $ref: '#/components/parameters/ListLimit'
+        - $ref: '#/components/parameters/ListOffset'
+        - $ref: '#/components/parameters/CorrelationId'
+      responses:
+        '200': { $ref: '#/components/responses/PayoutPageResponse' }
+        '403': { $ref: '#/components/responses/ErrorResponse' }
+    post:
+      tags: [Payout beneficiaries]
+      summary: Create the first immutable beneficiary version
+      security: [{ PayoutPrincipalAuth: [] }]
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+        - $ref: '#/components/parameters/CorrelationId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/CreatePayoutBeneficiaryRequest' }
+      responses:
+        '201': { $ref: '#/components/responses/DataResponse' }
+        '400': { $ref: '#/components/responses/ErrorResponse' }
+        '403': { $ref: '#/components/responses/ErrorResponse' }
+  /v1/payout-beneficiaries/{beneficiaryId}/versions:
+    post:
+      tags: [Payout beneficiaries]
+      summary: Create a new immutable beneficiary address version
+      security: [{ PayoutPrincipalAuth: [] }]
+      parameters:
+        - $ref: '#/components/parameters/BeneficiaryId'
+        - $ref: '#/components/parameters/IdempotencyKey'
+        - $ref: '#/components/parameters/CorrelationId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/PayoutBeneficiaryVersionRequest' }
+      responses:
+        '201': { $ref: '#/components/responses/DataResponse' }
+        '400': { $ref: '#/components/responses/ErrorResponse' }
+        '403': { $ref: '#/components/responses/ErrorResponse' }
+  /v1/payout-beneficiaries/{beneficiaryId}/versions/{version}/activate:
+    post:
+      tags: [Payout beneficiaries]
+      summary: Activate one beneficiary version and disable the prior active version
+      security: [{ PayoutPrincipalAuth: [] }]
+      parameters:
+        - $ref: '#/components/parameters/BeneficiaryId'
+        - $ref: '#/components/parameters/Version'
+        - $ref: '#/components/parameters/IdempotencyKey'
+        - $ref: '#/components/parameters/CorrelationId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/EmptyObject' }
+      responses:
+        '200': { $ref: '#/components/responses/DataResponse' }
+        '403': { $ref: '#/components/responses/ErrorResponse' }
+        '404': { $ref: '#/components/responses/ErrorResponse' }
+  /v1/payout-beneficiaries/{beneficiaryId}/disable:
+    post:
+      tags: [Payout beneficiaries]
+      summary: Disable a beneficiary while preserving its version ledger
+      security: [{ PayoutPrincipalAuth: [] }]
+      parameters:
+        - $ref: '#/components/parameters/BeneficiaryId'
+        - $ref: '#/components/parameters/IdempotencyKey'
+        - $ref: '#/components/parameters/CorrelationId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/EmptyObject' }
+      responses:
+        '200': { $ref: '#/components/responses/DataResponse' }
+        '403': { $ref: '#/components/responses/ErrorResponse' }
+        '404': { $ref: '#/components/responses/ErrorResponse' }
+  /v1/capabilities:
+    get:
+      tags: [Capabilities]
+      summary: Get public prototype capability truth
+      parameters:
+        - $ref: '#/components/parameters/CorrelationId'
+      responses:
+        '200': { $ref: '#/components/responses/DataResponse' }
+  /health:
+    get:
+      tags: [Capabilities]
+      summary: Get non-sensitive prototype health
+      parameters:
+        - $ref: '#/components/parameters/CorrelationId'
+      responses:
+        '200': { $ref: '#/components/responses/HealthResponse' }
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: tenant-scoped prototype API key
+      description: Server-to-server only. Never embed this credential in browser code.
+    PayoutPrincipalAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: opaque payout principal token
+      description: >-
+        Server-to-server only. The server stores only SHA-256 token digests and
+        derives tenant, principal and REQUESTER/APPROVER/EXECUTOR/POLICY_ADMIN/AUDITOR roles from the registry.
+  parameters:
+    IntentId:
+      name: intentId
+      in: path
+      required: true
+      schema: { type: string, pattern: '^[A-Za-z0-9_-]{3,128}$' }
+    EvaluationId:
+      name: evaluationId
+      in: path
+      required: true
+      schema: { type: string, pattern: '^[A-Za-z0-9_-]{3,128}$' }
+    PayoutId:
+      name: payoutId
+      in: path
+      required: true
+      schema: { type: string, pattern: '^[A-Za-z0-9._:-]{3,128}$' }
+    PolicyId:
+      name: policyId
+      in: path
+      required: true
+      schema: { type: string, pattern: '^[A-Za-z0-9._:-]{3,128}$' }
+    BeneficiaryId:
+      name: beneficiaryId
+      in: path
+      required: true
+      schema: { type: string, pattern: '^[A-Za-z0-9._:-]{3,128}$' }
+    Version:
+      name: version
+      in: path
+      required: true
+      schema: { type: integer, minimum: 1, maximum: 999999999 }
+    IdempotencyKey:
+      name: Idempotency-Key
+      in: header
+      required: true
+      schema: { type: string, minLength: 8, maxLength: 256 }
+    CorrelationId:
+      name: X-Correlation-Id
+      in: header
+      required: false
+      schema: { type: string, minLength: 8, maxLength: 128 }
+    ListLimit:
+      name: limit
+      in: query
+      required: false
+      schema: { type: integer, minimum: 1, maximum: 200, default: 50 }
+    ListOffset:
+      name: offset
+      in: query
+      required: false
+      schema: { type: integer, minimum: 0, maximum: 1000000, default: 0 }
+  responses:
+    DataResponse:
+      description: Successful data envelope
+      headers:
+        X-Correlation-Id: { schema: { type: string } }
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [data]
+            properties:
+              data: {}
+    PayoutPageResponse:
+      description: Bounded tenant-scoped payout resource page
+      headers:
+        X-Correlation-Id: { schema: { type: string } }
+      content:
+        application/json:
+          schema:
+            type: object
+            additionalProperties: false
+            required: [data]
+            properties:
+              data: { $ref: '#/components/schemas/PayoutPage' }
+    HealthResponse:
+      description: Non-sensitive raw prototype health and persistence truth
+      headers:
+        X-Correlation-Id: { schema: { type: string } }
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/HealthResponse' }
+    EvaluationResponse:
+      description: Provider-neutral preflight result
+      headers:
+        X-Correlation-Id: { schema: { type: string } }
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [data]
+            properties:
+              data: { $ref: '#/components/schemas/GuardEvaluation' }
+    AuthorizationResponse:
+      description: Human authorization bound to one evaluation, policy and execution fingerprint
+      headers:
+        X-Correlation-Id: { schema: { type: string } }
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [data]
+            properties:
+              data: { $ref: '#/components/schemas/HumanAuthorization' }
+    StatusResponse:
+      description: Independent Guard lifecycle axes
+      headers:
+        X-Correlation-Id: { schema: { type: string } }
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [data]
+            properties:
+              data: { $ref: '#/components/schemas/GuardStatus' }
+    ReceiptResponse:
+      description: Finalized decision and settlement evidence receipt
+      headers:
+        X-Correlation-Id: { schema: { type: string } }
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [data]
+            properties:
+              data:
+                oneOf:
+                  - $ref: '#/components/schemas/DecisionSettlementReceipt'
+                  - $ref: '#/components/schemas/RedactedDecisionSettlementReceipt'
+    PayoutExecutionPackageResponse:
+      description: Ten-field unsigned Arc transaction package
+      headers:
+        X-Correlation-Id: { schema: { type: string } }
+      content:
+        application/json:
+          schema:
+            type: object
+            additionalProperties: false
+            required: [data]
+            properties:
+              data: { $ref: '#/components/schemas/PayoutExecutionPackage' }
+    ErrorResponse:
+      description: Structured fail-closed error
+      headers:
+        X-Correlation-Id: { schema: { type: string } }
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ErrorEnvelope' }
+  schemas:
+    HealthResponse:
+      type: object
+      additionalProperties: false
+      required:
+        - ok
+        - service
+        - environment
+        - persistence
+        - persistenceDetail
+        - deployment
+        - stateChangesAccepted
+        - liveArcExecution
+        - verifiedOperation
+        - recordedOperation
+        - recordedAt
+        - swapExecution
+      properties:
+        ok: { const: true }
+        service: { const: ryntra-guard }
+        environment: { const: ARC_TESTNET }
+        persistence:
+          type: string
+          enum: [EPHEMERAL_SINGLE_INSTANCE, DURABLE_SINGLE_WRITER, DURABLE_MULTI_WRITER]
+        persistenceDetail: { type: string, minLength: 1 }
+        deployment:
+          type: string
+          enum: [SINGLE_INSTANCE, MULTI_INSTANCE]
+        stateChangesAccepted: { type: boolean }
+        liveArcExecution:
+          type: string
+          enum: [TESTNET_VERIFIED, RE_VERIFYING]
+        verifiedOperation:
+          type: [string, 'null']
+          enum: [EOA_USDC_ERC20_TREASURY_TRANSFER, null]
+        recordedOperation: { const: EOA_USDC_ERC20_TREASURY_TRANSFER }
+        recordedAt: { type: string, format: date-time }
+        swapExecution: { const: NOT_VERIFIED }
+    FinancialDecimal:
+      type: string
+      pattern: '^(0|[1-9][0-9]*)(\.[0-9]+)?$'
+      examples: ['10.00']
+    BaseUnits:
+      type: string
+      pattern: '^(0|[1-9][0-9]*)$'
+      maxLength: 40
+    HexHash:
+      type: string
+      pattern: '^0x[0-9a-f]{64}$'
+    EvmAddress:
+      type: string
+      pattern: '^0x[0-9a-f]{40}$'
+    PayoutIdentifier:
+      type: string
+      minLength: 3
+      maxLength: 128
+      pattern: '^[A-Za-z0-9._:-]{3,128}$'
+    EmptyObject:
+      type: object
+      additionalProperties: false
+      maxProperties: 0
+    PayoutPage:
+      type: object
+      additionalProperties: false
+      required: [total, items]
+      properties:
+        total: { type: integer, minimum: 0 }
+        items:
+          type: array
+          maxItems: 200
+          items: { type: object }
+    CreatePayoutRequest:
+      type: object
+      additionalProperties: false
+      required: [applicationId, businessKey, treasuryWalletAddress, beneficiaryId, amount, purposeCode, policyId]
+      properties:
+        applicationId: { $ref: '#/components/schemas/PayoutIdentifier' }
+        businessKey: { type: string, minLength: 1, maxLength: 128 }
+        treasuryWalletAddress: { $ref: '#/components/schemas/EvmAddress' }
+        beneficiaryId: { $ref: '#/components/schemas/PayoutIdentifier' }
+        amount:
+          type: string
+          pattern: '^(0|[1-9][0-9]*)(\.[0-9]{1,6})?$'
+          maxLength: 40
+        purposeCode: { enum: [INVOICE, PAYROLL, REFUND, TREASURY_TRANSFER] }
+        externalReferenceHash:
+          oneOf:
+            - $ref: '#/components/schemas/HexHash'
+            - type: 'null'
+          default: null
+        policyId: { $ref: '#/components/schemas/PayoutIdentifier' }
+    PayoutApprovalRequest:
+      type: object
+      additionalProperties: false
+      required: [decision, fingerprintHash]
+      properties:
+        decision: { enum: [APPROVED, REJECTED] }
+        fingerprintHash: { $ref: '#/components/schemas/HexHash' }
+    PayoutExecutionRequest:
+      type: object
+      additionalProperties: false
+      required: [transactionHash]
+      properties:
+        transactionHash: { $ref: '#/components/schemas/HexHash' }
+    PayoutPolicyVersionRequest:
+      type: object
+      additionalProperties: false
+      required:
+        - maxPerPayoutBaseUnits
+        - dailyOutflowLimitBaseUnits
+        - minimumPostPayoutReserveBaseUnits
+        - maxFeeNativeUnits
+        - evidenceMaxAgeSeconds
+        - authorizationTtlSeconds
+        - beneficiaryActivationDelaySeconds
+        - secondApprovalThresholdBaseUnits
+        - allowedPurposeCodes
+      properties:
+        maxPerPayoutBaseUnits: { $ref: '#/components/schemas/BaseUnits' }
+        dailyOutflowLimitBaseUnits: { $ref: '#/components/schemas/BaseUnits' }
+        minimumPostPayoutReserveBaseUnits: { $ref: '#/components/schemas/BaseUnits' }
+        maxFeeNativeUnits: { $ref: '#/components/schemas/BaseUnits' }
+        evidenceMaxAgeSeconds: { type: integer, minimum: 1, maximum: 86400 }
+        authorizationTtlSeconds: { type: integer, minimum: 1, maximum: 86400 }
+        beneficiaryActivationDelaySeconds: { type: integer, minimum: 0, maximum: 2592000 }
+        secondApprovalThresholdBaseUnits: { $ref: '#/components/schemas/BaseUnits' }
+        allowedPurposeCodes:
+          type: array
+          minItems: 1
+          maxItems: 4
+          uniqueItems: true
+          items: { enum: [INVOICE, PAYROLL, REFUND, TREASURY_TRANSFER] }
+    PayoutBeneficiaryVersionRequest:
+      type: object
+      additionalProperties: false
+      required: [label, walletAddress, activationDelaySeconds]
+      properties:
+        label: { type: string, minLength: 1, maxLength: 128 }
+        walletAddress: { $ref: '#/components/schemas/EvmAddress' }
+        activationDelaySeconds: { type: integer, minimum: 0, maximum: 2592000 }
+    CreatePayoutBeneficiaryRequest:
+      type: object
+      additionalProperties: false
+      required: [beneficiaryId, label, walletAddress, activationDelaySeconds]
+      properties:
+        beneficiaryId: { $ref: '#/components/schemas/PayoutIdentifier' }
+        label: { type: string, minLength: 1, maxLength: 128 }
+        walletAddress: { $ref: '#/components/schemas/EvmAddress' }
+        activationDelaySeconds: { type: integer, minimum: 0, maximum: 2592000 }
+    PayoutExecutionPackage:
+      type: object
+      additionalProperties: false
+      required: [chainId, from, target, calldata, nativeValue, maximumFee, expiresAt, authorizationId, payoutFingerprintHash, limitations]
+      properties:
+        chainId: { const: 5042002 }
+        from: { $ref: '#/components/schemas/EvmAddress' }
+        target: { $ref: '#/components/schemas/EvmAddress' }
+        calldata: { type: string, pattern: '^0x([0-9a-f]{2})+$' }
+        nativeValue: { const: '0' }
+        maximumFee: { $ref: '#/components/schemas/BaseUnits' }
+        expiresAt: { type: string, format: date-time }
+        authorizationId: { type: string }
+        payoutFingerprintHash: { $ref: '#/components/schemas/HexHash' }
+        limitations:
+          type: array
+          minItems: 3
+          items:
+            enum:
+              - RYNTRA_DID_NOT_SIGN_OR_BROADCAST
+              - SOURCE_IMPLEMENTED_LIVE_PAYOUT_NOT_VERIFIED
+              - EXTERNAL_WALLET_MUST_SIGN_AND_BROADCAST
+    PayoutChainBinding:
+      type: object
+      additionalProperties: false
+      required: [chainRef, chainId, assetRef, contractAddress, decimals]
+      properties:
+        chainRef: { const: 'eip155:5042002' }
+        chainId: { const: 5042002 }
+        assetRef: { const: 'eip155:5042002/erc20:0x3600000000000000000000000000000000000000' }
+        contractAddress: { const: '0x3600000000000000000000000000000000000000' }
+        decimals: { const: 6 }
+    PayoutChainProvenance:
+      type: object
+      additionalProperties: false
+      required: [rpcSourceRef, blockNumber, blockHash, transactionIndex, logIndex, confirmations, observedAt]
+      properties:
+        rpcSourceRef: { type: string, minLength: 1, maxLength: 512 }
+        blockNumber: { type: integer, minimum: 0 }
+        blockHash: { $ref: '#/components/schemas/HexHash' }
+        transactionIndex: { type: integer, minimum: 0 }
+        logIndex: { type: integer, minimum: 0 }
+        confirmations: { type: integer, minimum: 0 }
+        observedAt: { type: string, format: date-time }
+    CreateIntentRequest:
+      type: object
+      additionalProperties: false
+      required:
+        - applicationId
+        - externalPartnerId
+        - subjectRef
+        - walletAddress
+        - walletType
+        - chainRef
+        - environment
+        - actionType
+        - instrumentRef
+        - sellAssetRef
+        - buyAssetRef
+        - amount
+        - amountType
+        - recipient
+        - venueRef
+        - routeRef
+        - quoteRef
+        - target
+        - calldataHash
+        - nativeValue
+        - portfolioSnapshotRef
+        - policyRef
+        - expiresAt
+      properties:
+        applicationId: { type: string }
+        externalPartnerId: { type: string }
+        subjectRef: { type: string }
+        walletAddress: { type: string, pattern: '^0x[0-9a-fA-F]{40}$' }
+        walletType: { enum: [EOA, SMART_ACCOUNT, SAFE, ERC4337, OTHER] }
+        chainRef: { type: string, example: 'eip155:5042002' }
+        environment: { enum: [ARC_TESTNET, TESTNET, SANDBOX, PRODUCTION] }
+        actionType: { enum: [SWAP, SEND, SPEND, BRIDGE] }
+        instrumentRef: { type: string }
+        sellAssetRef: { type: string }
+        buyAssetRef: { type: string }
+        amount:
+          type: string
+          allOf: [{ $ref: '#/components/schemas/FinancialDecimal' }]
+        leverage: { type: [string, 'null'], default: null }
+        amountType: { enum: [EXACT_INPUT, EXACT_OUTPUT] }
+        recipient: { type: string, pattern: '^0x[0-9a-fA-F]{40}$' }
+        venueRef: { type: string }
+        routeRef: { type: string }
+        quoteRef: { type: [string, 'null'] }
+        executionBindingKind: { enum: [EVM_TRANSACTION, APP_KIT_REQUEST], default: EVM_TRANSACTION }
+        target: { type: [string, 'null'] }
+        calldataHash: { type: [string, 'null'] }
+        nativeValue: { $ref: '#/components/schemas/FinancialDecimal' }
+        adapterRequestHash: { type: [string, 'null'] }
+        productionCalldataBound: { type: boolean, default: true }
+        portfolioSnapshotRef: { type: [string, 'null'] }
+        policyRef:
+          type: object
+          required: [id, version]
+          properties:
+            id: { type: string }
+            version: { type: integer, minimum: 1 }
+        expiresAt: { type: string, format: date-time }
+    EvidenceItem:
+      type: object
+      additionalProperties: false
+      required:
+        - schemaVersion
+        - id
+        - provider
+        - sourceRef
+        - adapter
+        - adapterVersion
+        - sourceType
+        - observedAt
+        - receivedAt
+        - validUntil
+        - coverage
+        - availability
+        - confidence
+        - chainRef
+        - blockRef
+        - transactionRef
+        - verificationStatus
+        - status
+        - requestHash
+        - responseHash
+        - responseDigest
+        - reason
+        - transformationVersion
+        - fallbackUsed
+        - facts
+      properties:
+        schemaVersion: { const: 1.0.0 }
+        id: { type: string }
+        provider: { type: string }
+        sourceRef: { type: string }
+        adapter: { type: string }
+        adapterVersion: { type: string }
+        sourceType: { type: string }
+        observedAt: { type: string, format: date-time }
+        receivedAt: { type: string, format: date-time }
+        validUntil: { type: string, format: date-time }
+        confidence: { type: string }
+        coverage:
+          type: object
+          additionalProperties: false
+          required: [subjectRefs, fields, limitations]
+          properties:
+            subjectRefs: { type: array, minItems: 1, items: { type: string } }
+            fields: { type: array, minItems: 1, items: { type: string } }
+            limitations: { type: array, items: { type: string } }
+        availability: { enum: [AVAILABLE, PARTIAL, UNAVAILABLE, UNSUPPORTED] }
+        verificationStatus:
+          enum: [PROVIDER_REPORTED, DETERMINISTICALLY_DERIVED, ONCHAIN_VERIFIED, NOT_VERIFIED, CONFLICTING]
+        chainRef: { type: [string, 'null'] }
+        blockRef: { type: [string, 'null'] }
+        transactionRef: { type: [string, 'null'] }
+        status: { enum: [VALID, STALE, MISSING, CONFLICTING, UNAVAILABLE, UNSUPPORTED] }
+        requestHash: { type: string }
+        responseHash: { type: string }
+        responseDigest: { type: string, description: Must equal the responseHash compatibility alias. }
+        reason: { type: [string, 'null'] }
+        transformationVersion: { type: string }
+        fallbackUsed: { type: boolean }
+        facts: { type: object, additionalProperties: true }
+    PolicyResult:
+      type: object
+      additionalProperties: false
+      required:
+        - schemaVersion
+        - id
+        - intentId
+        - intentRevision
+        - policyRef
+        - policyVersion
+        - policyDigest
+        - evidenceRoot
+        - evidenceRefs
+        - decision
+        - status
+        - blockers
+        - warnings
+        - evaluatedAt
+      properties:
+        schemaVersion: { const: 1.0.0 }
+        id: { type: string }
+        intentId: { type: string }
+        intentRevision: { type: integer, minimum: 1 }
+        policyRef:
+          type: object
+          additionalProperties: false
+          required: [id, version]
+          properties:
+            id: { type: string }
+            version: { type: integer, minimum: 1 }
+        policyVersion: { type: integer, minimum: 1 }
+        policyDigest: { type: string, pattern: '^0x[0-9a-fA-F]{64}$' }
+        evidenceRoot: { type: string, pattern: '^0x[0-9a-fA-F]{64}$' }
+        evidenceRefs: { type: array, items: { type: string } }
+        decision:
+          enum: [ALLOWED_BY_POLICY, REVIEW_REQUIRED, BLOCKED_BY_RULE, INSUFFICIENT_EVIDENCE, UNSUPPORTED, EXPIRED]
+        status: { enum: [PASS, WARN, BLOCK, NOT_EVALUATED] }
+        blockers: { type: array, items: { type: string } }
+        warnings: { type: array, items: { type: string } }
+        evaluatedAt: { type: string, format: date-time }
+    GuardEvaluation:
+      type: object
+      additionalProperties: true
+      required:
+        - schemaVersion
+        - id
+        - evidenceStatus
+        - policyDecision
+        - authorizationStatus
+        - executionStatus
+        - policyVersion
+        - policyDigest
+        - policyResult
+        - preflightHash
+        - expectedEffects
+        - actualEffects
+        - reconciliationStatus
+      properties:
+        schemaVersion: { const: 1.0.0 }
+        id: { type: string }
+        evidenceStatus: { enum: [COMPLETE, PARTIAL, INSUFFICIENT, CONFLICTING, UNAVAILABLE] }
+        policyDecision:
+          enum: [ALLOWED_BY_POLICY, REVIEW_REQUIRED, BLOCKED_BY_RULE, INSUFFICIENT_EVIDENCE, UNSUPPORTED, EXPIRED]
+        authorizationStatus: { enum: [NOT_REQUIRED, PENDING, APPROVED, REJECTED, EXPIRED, REVOKED] }
+        executionStatus:
+          enum: [NOT_STARTED, SUBMITTED, SOURCE_CONFIRMED, IN_TRANSIT, DESTINATION_PENDING, CONFIRMED, FAILED, RECOVERY_REQUIRED, RECONCILIATION_REQUIRED, CANCELLED]
+        policyVersion: { type: integer, minimum: 1 }
+        policyDigest: { type: string }
+        policyResult: { $ref: '#/components/schemas/PolicyResult' }
+        preflightHash: { type: string }
+        expectedEffects: { oneOf: [{ $ref: '#/components/schemas/ExpectedEffects' }, { type: 'null' }] }
+        actualEffects: { oneOf: [{ $ref: '#/components/schemas/ActualEffects' }, { type: 'null' }] }
+        reconciliationStatus: { $ref: '#/components/schemas/ReconciliationStatus' }
+    GuardStatus:
+      type: object
+      additionalProperties: true
+      required: [intentId, evidenceStatus, policyDecision, authorizationStatus, executionStatus, reconciliationStatus]
+      properties:
+        intentId: { type: string }
+        evidenceStatus: { enum: [COMPLETE, PARTIAL, INSUFFICIENT, CONFLICTING, UNAVAILABLE] }
+        policyDecision:
+          enum: [ALLOWED_BY_POLICY, REVIEW_REQUIRED, BLOCKED_BY_RULE, INSUFFICIENT_EVIDENCE, UNSUPPORTED, EXPIRED]
+        authorizationStatus: { enum: [NOT_REQUIRED, PENDING, APPROVED, REJECTED, EXPIRED, REVOKED] }
+        executionStatus:
+          enum: [NOT_STARTED, SUBMITTED, SOURCE_CONFIRMED, IN_TRANSIT, DESTINATION_PENDING, CONFIRMED, FAILED, RECOVERY_REQUIRED, RECONCILIATION_REQUIRED, CANCELLED]
+        reconciliationStatus: { $ref: '#/components/schemas/ReconciliationStatus' }
+    ExpectedEffects:
+      type: object
+      additionalProperties: false
+      required: [amountIn, amountOut, minimumAmountOut, feeAmount, totalDebit]
+      properties:
+        amountIn: { $ref: '#/components/schemas/FinancialDecimal' }
+        amountOut: { $ref: '#/components/schemas/FinancialDecimal' }
+        minimumAmountOut: { $ref: '#/components/schemas/FinancialDecimal' }
+        feeAmount: { $ref: '#/components/schemas/FinancialDecimal' }
+        totalDebit: { $ref: '#/components/schemas/FinancialDecimal' }
+    ActualEffects:
+      type: object
+      additionalProperties: false
+      required: [amountIn, amountOut, feeAmount]
+      properties:
+        amountIn: { $ref: '#/components/schemas/FinancialDecimal' }
+        amountOut: { $ref: '#/components/schemas/FinancialDecimal' }
+        feeAmount: { $ref: '#/components/schemas/FinancialDecimal' }
+    ReconciliationStatus:
+      enum: [NOT_RECONCILED, RECONCILIATION_REQUIRED, MATCHED, DEVIATION_RECORDED]
+    ReceiptIntent:
+      type: object
+      additionalProperties: false
+      required: [id, revision, hash]
+      properties:
+        id: { type: string }
+        revision: { type: integer, minimum: 1 }
+        hash: { type: string, pattern: '^0x[0-9a-fA-F]{64}$' }
+    ReceiptEvidence:
+      type: object
+      additionalProperties: false
+      required: [root, refs]
+      properties:
+        root: { type: string, pattern: '^0x[0-9a-fA-F]{64}$' }
+        refs: { type: array, items: { type: string } }
+    ReceiptPolicy:
+      type: object
+      additionalProperties: false
+      required: [id, version, hash, outcome]
+      properties:
+        id: { type: string }
+        version: { type: integer, minimum: 1 }
+        hash: { type: string, pattern: '^0x[0-9a-fA-F]{64}$' }
+        outcome:
+          enum: [ALLOWED_BY_POLICY, REVIEW_REQUIRED, BLOCKED_BY_RULE, INSUFFICIENT_EVIDENCE, UNSUPPORTED, EXPIRED]
+    ReceiptAuthorization:
+      type: object
+      additionalProperties: false
+      required: [id, method, subjectRef, createdAt]
+      properties:
+        id: { type: string }
+        method: { enum: [PARTNER_AUTHENTICATED, EIP712] }
+        subjectRef: { type: string }
+        createdAt: { type: string, format: date-time }
+        expiresAt:
+          type: string
+          format: date-time
+          description: Required on receipts with schemaVersion 1.1.0.
+        executionFingerprintHash:
+          type: string
+          pattern: '^0x[0-9a-fA-F]{64}$'
+          description: Required on receipts with schemaVersion 1.1.0 and equal to execution.fingerprintHash.
+    ReceiptExecution:
+      type: object
+      additionalProperties: false
+      required: [id, fingerprintHash, bindingKind, productionCalldataBound, transactionHash, status, explorerUrl]
+      properties:
+        id: { type: string }
+        fingerprintHash: { type: string, pattern: '^0x[0-9a-fA-F]{64}$' }
+        bindingKind: { enum: [EVM_TRANSACTION, APP_KIT_REQUEST] }
+        productionCalldataBound: { type: boolean }
+        transactionHash: { type: string, pattern: '^0x[0-9a-fA-F]{64}$' }
+        status: { const: CONFIRMED }
+        explorerUrl:
+          type: string
+          format: uri
+          pattern: '^https://testnet\.arcscan\.app/tx/0x[0-9a-f]{64}$'
+          description: Canonical Arc Testnet explorer URL for transactionHash; the hash segment must match exactly.
+    ReceiptReconciliation:
+      type: object
+      additionalProperties: false
+      required: [status, expected, actual, evidence]
+      properties:
+        status: { enum: [MATCHED, DEVIATION_RECORDED] }
+        expected: { $ref: '#/components/schemas/ExpectedEffects' }
+        actual: { $ref: '#/components/schemas/ActualEffects' }
+        evidence:
+          type: object
+          additionalProperties: false
+          required: [provider, sourceRef, verificationStatus, observedAt, responseDigest]
+          properties:
+            provider: { type: string }
+            sourceRef: { type: string }
+            verificationStatus: { enum: [PROVIDER_REPORTED, ONCHAIN_VERIFIED] }
+            observedAt: { type: string, format: date-time }
+            responseDigest: { type: string, pattern: '^0x[0-9a-fA-F]{64}$' }
+    ReceiptSettlement:
+      type: object
+      additionalProperties: false
+      required: [status, recoveryState]
+      properties:
+        status: { const: CONFIRMED }
+        recoveryState: { const: NOT_REQUIRED }
+    ReceiptIntegrity:
+      type: object
+      additionalProperties: false
+      required: [algorithm, hash]
+      properties:
+        algorithm: { const: SHA-256 }
+        hash: { type: string, pattern: '^0x[0-9a-fA-F]{64}$' }
+    DecisionSettlementReceipt:
+      type: object
+      additionalProperties: false
+      allOf:
+        - if:
+            required: [schemaVersion]
+            properties:
+              schemaVersion: { enum: [1.1.0, 1.2.0] }
+          then:
+            properties:
+              authorization:
+                allOf:
+                  - $ref: '#/components/schemas/ReceiptAuthorization'
+                  - required: [expiresAt, executionFingerprintHash]
+        - if:
+            required: [schemaVersion]
+            properties:
+              schemaVersion: { const: 1.2.0 }
+          then:
+            required: [payout]
+      required:
+        - schemaVersion
+        - id
+        - tenantId
+        - evidenceStatus
+        - policyDecision
+        - authorizationStatus
+        - executionStatus
+        - policyVersion
+        - policyDigest
+        - preflightHash
+        - expectedEffects
+        - actualEffects
+        - reconciliationStatus
+        - intent
+        - evidence
+        - policy
+        - authorization
+        - execution
+        - reconciliation
+        - settlement
+        - createdAt
+        - finalizedAt
+        - limitations
+        - receiptHash
+        - integrity
+      properties:
+        schemaVersion: { enum: [1.0.0, 1.1.0, 1.2.0] }
+        id: { type: string }
+        tenantId: { type: string }
+        evidenceStatus: { enum: [COMPLETE, PARTIAL, INSUFFICIENT, CONFLICTING, UNAVAILABLE] }
+        policyDecision:
+          enum: [ALLOWED_BY_POLICY, REVIEW_REQUIRED, BLOCKED_BY_RULE, INSUFFICIENT_EVIDENCE, UNSUPPORTED, EXPIRED]
+        authorizationStatus: { const: APPROVED }
+        executionStatus: { const: CONFIRMED }
+        policyVersion: { type: integer, minimum: 1 }
+        policyDigest: { type: string, pattern: '^0x[0-9a-fA-F]{64}$' }
+        preflightHash: { type: string, pattern: '^0x[0-9a-fA-F]{64}$' }
+        expectedEffects: { $ref: '#/components/schemas/ExpectedEffects' }
+        actualEffects: { $ref: '#/components/schemas/ActualEffects' }
+        reconciliationStatus: { enum: [MATCHED, DEVIATION_RECORDED] }
+        intent: { $ref: '#/components/schemas/ReceiptIntent' }
+        evidence: { $ref: '#/components/schemas/ReceiptEvidence' }
+        policy: { $ref: '#/components/schemas/ReceiptPolicy' }
+        authorization: { $ref: '#/components/schemas/ReceiptAuthorization' }
+        execution: { $ref: '#/components/schemas/ReceiptExecution' }
+        reconciliation: { $ref: '#/components/schemas/ReceiptReconciliation' }
+        settlement: { $ref: '#/components/schemas/ReceiptSettlement' }
+        createdAt: { type: string, format: date-time }
+        finalizedAt: { type: string, format: date-time }
+        limitations:
+          type: array
+          minItems: 1
+          items: { type: string }
+          description: >-
+            Receipt 1.2.0 always includes SOURCE_IMPLEMENTED_LIVE_PAYOUT_NOT_VERIFIED,
+            RYNTRA_DID_NOT_SIGN_OR_BROADCAST, NOT_LEGAL_OR_COMPLIANCE_PROOF and
+            EXTERNAL_SOURCE_TRUTH_NOT_GUARANTEED.
+        payout: { $ref: '#/components/schemas/DecisionSettlementPayout' }
+        receiptHash: { type: string, pattern: '^0x[0-9a-fA-F]{64}$' }
+        integrity: { $ref: '#/components/schemas/ReceiptIntegrity' }
+    RedactedDecisionSettlementReceipt:
+      description: >-
+        A view of a 1.2.0 payout receipt with all internal requester and approver
+        references, including authorization.subjectRef, removed. It intentionally keeps the original receiptHash and
+        does not claim that the redacted body re-hashes to that value.
+      type: object
+      required: [schemaVersion, id, tenantId, receiptHash, integrity, redacted, payout]
+      properties:
+        schemaVersion: { const: 1.2.0 }
+        id: { type: string }
+        tenantId: { type: string }
+        receiptHash: { type: string, pattern: '^0x[0-9a-fA-F]{64}$' }
+        integrity: { $ref: '#/components/schemas/ReceiptIntegrity' }
+        redacted: { const: true }
+        payout: { $ref: '#/components/schemas/RedactedDecisionSettlementPayout' }
+      additionalProperties: true
+    DecisionSettlementPayout:
+      type: object
+      additionalProperties: false
+      required:
+        - payoutId
+        - purposeCode
+        - amount
+        - amountBaseUnits
+        - beneficiaryRef
+        - beneficiaryVersion
+        - beneficiaryWalletAddress
+        - treasuryWalletAddress
+        - payoutInstructionHash
+        - beneficiaryVersionHash
+        - policyVersionHash
+        - approvalSetHash
+        - externalReferenceHash
+        - reservationId
+        - requiredApprovalCount
+        - receivedApprovalCount
+        - maxTotalDebitBaseUnits
+        - actualTotalDebitBaseUnits
+        - chain
+        - provenance
+      properties:
+        payoutId: { type: string }
+        purposeCode: { enum: [INVOICE, PAYROLL, REFUND, TREASURY_TRANSFER] }
+        amount: { $ref: '#/components/schemas/FinancialDecimal' }
+        amountBaseUnits: { $ref: '#/components/schemas/BaseUnits' }
+        beneficiaryRef: { type: string }
+        beneficiaryVersion: { type: integer, minimum: 1 }
+        beneficiaryWalletAddress: { $ref: '#/components/schemas/EvmAddress' }
+        treasuryWalletAddress: { $ref: '#/components/schemas/EvmAddress' }
+        payoutInstructionHash: { $ref: '#/components/schemas/HexHash' }
+        beneficiaryVersionHash: { $ref: '#/components/schemas/HexHash' }
+        policyVersionHash: { $ref: '#/components/schemas/HexHash' }
+        approvalSetHash: { $ref: '#/components/schemas/HexHash' }
+        externalReferenceHash:
+          oneOf:
+            - $ref: '#/components/schemas/HexHash'
+            - type: 'null'
+        reservationId: { type: string }
+        requiredApprovalCount: { type: integer, minimum: 1, maximum: 2 }
+        receivedApprovalCount: { type: integer, minimum: 1, maximum: 2 }
+        requesterRef: { type: string }
+        approverRefs: { type: array, minItems: 1, maxItems: 2, uniqueItems: true, items: { type: string } }
+        maxTotalDebitBaseUnits: { $ref: '#/components/schemas/BaseUnits' }
+        actualTotalDebitBaseUnits: { $ref: '#/components/schemas/BaseUnits' }
+        chain: { $ref: '#/components/schemas/PayoutChainBinding' }
+        provenance: { $ref: '#/components/schemas/PayoutChainProvenance' }
+    RedactedDecisionSettlementPayout:
+      allOf:
+        - $ref: '#/components/schemas/DecisionSettlementPayout'
+      description: DecisionSettlementPayout without requesterRef or approverRefs.
+    ExecutionFingerprint:
+      type: object
+      additionalProperties: false
+      required:
+        - schemaVersion
+        - intentId
+        - intentRevision
+        - chainRef
+        - walletAddress
+        - bindingKind
+        - target
+        - calldataHash
+        - nativeValue
+        - adapterRequestHash
+        - productionCalldataBound
+        - sellAssetRef
+        - buyAssetRef
+        - amount
+        - leverage
+        - recipient
+        - venueRef
+        - routeRef
+        - quoteHash
+        - maxFee
+        - minimumOutput
+        - expiresAt
+      properties:
+        schemaVersion: { const: 1.0.0 }
+        intentId: { type: string }
+        intentRevision: { type: integer, minimum: 1 }
+        chainRef: { type: string }
+        walletAddress: { type: string }
+        bindingKind: { enum: [EVM_TRANSACTION, APP_KIT_REQUEST] }
+        target: { type: [string, 'null'] }
+        calldataHash: { type: [string, 'null'] }
+        nativeValue: { $ref: '#/components/schemas/FinancialDecimal' }
+        adapterRequestHash: { type: [string, 'null'] }
+        productionCalldataBound: { type: boolean }
+        sellAssetRef: { type: string }
+        buyAssetRef: { type: string }
+        amount: { $ref: '#/components/schemas/FinancialDecimal' }
+        leverage: { type: [string, 'null'], default: null }
+        recipient: { type: string }
+        venueRef: { type: string }
+        routeRef: { type: string }
+        quoteHash: { type: string }
+        maxFee: { $ref: '#/components/schemas/FinancialDecimal' }
+        minimumOutput: { $ref: '#/components/schemas/FinancialDecimal' }
+        expiresAt: { type: string, format: date-time }
+    AuthorizeRequest:
+      type: object
+      additionalProperties: false
+      required: [evaluationId, fingerprint, subjectRef, method]
+      properties:
+        evaluationId: { type: string }
+        fingerprint: { $ref: '#/components/schemas/ExecutionFingerprint' }
+        subjectRef: { type: string }
+        method: { const: PARTNER_AUTHENTICATED }
+    HumanAuthorization:
+      type: object
+      additionalProperties: false
+      required:
+        - schemaVersion
+        - id
+        - tenantId
+        - intentId
+        - intentRevision
+        - evaluationId
+        - intentHash
+        - evidenceRoot
+        - policyHash
+        - policyVersion
+        - policyDigest
+        - preflightHash
+        - executionFingerprintHash
+        - materialWarningsShown
+        - subjectRef
+        - method
+        - decision
+        - createdAt
+        - expiresAt
+        - signatureRef
+      properties:
+        schemaVersion: { enum: [1.0.0, 1.1.0] }
+        id: { type: string }
+        tenantId: { type: string }
+        intentId: { type: string }
+        intentRevision: { type: integer, minimum: 1 }
+        evaluationId: { type: string }
+        intentHash: { type: string, pattern: '^0x[0-9a-fA-F]{64}$' }
+        evidenceRoot: { type: string, pattern: '^0x[0-9a-fA-F]{64}$' }
+        policyHash: { type: string, pattern: '^0x[0-9a-fA-F]{64}$' }
+        policyVersion: { type: integer, minimum: 1 }
+        policyDigest: { type: string, pattern: '^0x[0-9a-fA-F]{64}$' }
+        preflightHash: { type: string, pattern: '^0x[0-9a-fA-F]{64}$' }
+        executionFingerprintHash: { type: string, pattern: '^0x[0-9a-fA-F]{64}$' }
+        materialWarningsShown: { type: array, maxItems: 64, items: { type: string } }
+        subjectRef: { type: string }
+        method: { const: PARTNER_AUTHENTICATED }
+        decision: { const: APPROVED }
+        createdAt: { type: string, format: date-time }
+        expiresAt: { type: string, format: date-time }
+        signatureRef: { type: [string, 'null'] }
+        payoutInstructionHash: { $ref: '#/components/schemas/HexHash' }
+        approvalSetHash: { $ref: '#/components/schemas/HexHash' }
+        requesterRef: { type: string }
+        requiredApprovalCount: { type: integer, minimum: 1, maximum: 2 }
+        receivedApprovalCount: { type: integer, minimum: 1, maximum: 2 }
+        approvers:
+          type: array
+          minItems: 1
+          maxItems: 2
+          items:
+            type: object
+            additionalProperties: false
+            required: [principalRef, approvalHash, approvedAt]
+            properties:
+              principalRef: { type: string }
+              approvalHash: { $ref: '#/components/schemas/HexHash' }
+              approvedAt: { type: string, format: date-time }
+        reservationId: { type: string }
+    RecordExecutionRequest:
+      type: object
+      additionalProperties: false
+      required: [operation, authorizationId, fingerprint, transactionHash]
+      properties:
+        operation: { const: RECORD }
+        authorizationId: { type: string }
+        fingerprint: { $ref: '#/components/schemas/ExecutionFingerprint' }
+        transactionHash: { type: string, pattern: '^0x[0-9a-fA-F]{64}$' }
+    ReconcileExecutionRequest:
+      oneOf:
+        - $ref: '#/components/schemas/ConfirmedReconcileExecutionRequest'
+        - $ref: '#/components/schemas/UncertainReconcileExecutionRequest'
+      discriminator:
+        propertyName: observedState
+        mapping:
+          CONFIRMED: '#/components/schemas/ConfirmedReconcileExecutionRequest'
+          RPC_UNCERTAIN_AFTER_BROADCAST: '#/components/schemas/UncertainReconcileExecutionRequest'
+    ConfirmedReconcileExecutionRequest:
+      type: object
+      additionalProperties: false
+      required: [operation, transactionHash, observedState, observedAt, actualOutcome]
+      properties:
+        operation: { const: RECONCILE }
+        transactionHash: { type: string, pattern: '^0x[0-9a-fA-F]{64}$' }
+        observedState: { const: CONFIRMED }
+        observedAt:
+          type: string
+          format: date-time
+          description: Transaction/block observation time used to reject pre-authorization or future transactions.
+        actualOutcome:
+          $ref: '#/components/schemas/ReconcileActualOutcome'
+    UncertainReconcileExecutionRequest:
+      type: object
+      additionalProperties: false
+      required: [operation, transactionHash, observedState]
+      properties:
+        operation: { const: RECONCILE }
+        transactionHash: { type: string, pattern: '^0x[0-9a-fA-F]{64}$' }
+        observedState: { const: RPC_UNCERTAIN_AFTER_BROADCAST }
+        observedAt:
+          type: string
+          format: date-time
+        actualOutcome:
+          $ref: '#/components/schemas/ReconcileActualOutcome'
+    ReconcileActualOutcome:
+      description: >-
+        Reported by the authenticated partner on the generic API and labelled
+        PROVIDER_REPORTED in the finalized receipt. The Arc demo uses its server verifier.
+      type: object
+      additionalProperties: false
+      required: [amountIn, amountOut, feeAmount, explorerUrl]
+      properties:
+        amountIn: { $ref: '#/components/schemas/FinancialDecimal' }
+        amountOut: { $ref: '#/components/schemas/FinancialDecimal' }
+        feeAmount: { $ref: '#/components/schemas/FinancialDecimal' }
+        explorerUrl:
+          type: string
+          format: uri
+          pattern: '^https://testnet\.arcscan\.app/tx/0x[0-9a-f]{64}$'
+          description: >-
+            Must equal the canonical Arc Testnet explorer URL derived from transactionHash.
+    ErrorEnvelope:
+      type: object
+      additionalProperties: false
+      required: [error]
+      properties:
+        error:
+          type: object
+          additionalProperties: false
+          required: [code, message, retryable, requiredAction, correlationId]
+          properties:
+            code:
+              enum:
+                - VALIDATION_ERROR
+                - AUTHENTICATION_REQUIRED
+                - TENANT_FORBIDDEN
+                - NOT_FOUND
+                - CAPABILITY_UNAVAILABLE
+                - EVIDENCE_INSUFFICIENT
+                - POLICY_BLOCKED
+                - HUMAN_AUTHORIZATION_REQUIRED
+                - AUTHORIZATION_EXPIRED
+                - EVALUATION_EXPIRED
+                - FINGERPRINT_MISMATCH
+                - IDEMPOTENCY_CONFLICT
+                - EXECUTION_NOT_CONFIRMED
+                - RECOVERY_REQUIRED
+                - RECONCILIATION_REQUIRED
+                - RATE_LIMITED
+            message: { type: string }
+            retryable: { type: boolean }
+            requiredAction: { type: [string, 'null'] }
+            correlationId: { type: string }

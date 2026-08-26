@@ -1,0 +1,85 @@
+{
+  "schemaVersion": "1.0.0",
+  "kind": "RYNTRA_PUBLIC_FILE_LIST",
+  "repository": "ryntra-arc-evidence",
+  "license": "Apache-2.0",
+  "note": "The files this package is made of. Generated from the publication allowlist; the boundary test reads this list and scans exactly these files, so a file added without being listed never reaches the public repository.",
+  "files": [
+    {
+      "path": "examples/partner-arc-app/server-flow.ts",
+      "role": "source"
+    },
+    {
+      "path": "lib/guard/arc-wallet-authorization.ts",
+      "role": "source"
+    },
+    {
+      "path": "lib/guard/canonical-json.ts",
+      "role": "source"
+    },
+    {
+      "path": "lib/guard/canonical.ts",
+      "role": "source"
+    },
+    {
+      "path": "lib/guard/contracts.test.mjs",
+      "role": "network_free_test"
+    },
+    {
+      "path": "lib/guard/contracts.ts",
+      "role": "source"
+    },
+    {
+      "path": "lib/guard/kernel.test.mjs",
+      "role": "network_free_test"
+    },
+    {
+      "path": "lib/guard/kernel.ts",
+      "role": "source"
+    },
+    {
+      "path": "lib/guard/payout-canonical.ts",
+      "role": "source"
+    },
+    {
+      "path": "lib/guard/schemas.test.mjs",
+      "role": "network_free_test"
+    },
+    {
+      "path": "lib/guard/service-query.test.mjs",
+      "role": "network_free_test"
+    },
+    {
+      "path": "lib/guard/service.test.mjs",
+      "role": "network_free_test"
+    },
+    {
+      "path": "lib/guard/service.ts",
+      "role": "source"
+    },
+    {
+      "path": "lib/guard/status-values.ts",
+      "role": "source"
+    },
+    {
+      "path": "lib/guard/store.ts",
+      "role": "source"
+    },
+    {
+      "path": "openapi/ryntra-guard-v1.yaml",
+      "role": "api_contract"
+    },
+    {
+      "path": "packages/guard-sdk/package.json",
+      "role": "package_metadata"
+    },
+    {
+      "path": "packages/guard-sdk/src/index.test.mjs",
+      "role": "network_free_test"
+    },
+    {
+      "path": "packages/guard-sdk/src/index.ts",
+      "role": "source"
+    }
+  ]
+}
