@@ -16,9 +16,16 @@ Apache-2.0. No key material, no signing path, no funds. Authorization arrives as
 a signature produced somewhere else, and this code verifies it rather than
 producing it.
 
+This is an Arc Public Testnet developer library within [Ryntra](https://ryntra.io).
+For the current Solana-first toolkit, start with the
+[Solana Evidence Kit](https://github.com/ryntra-io/ryntra-solana-evidence).
+This repository does not imply an active Arc workspace in the application.
+
 ## Quick start
 
 ```bash
+git clone https://github.com/ryntra-io/ryntra-arc-evidence.git
+cd ryntra-arc-evidence
 npm ci
 npm run verify
 ```
@@ -85,8 +92,6 @@ phrase, private key or signing request.
 
 Apache-2.0. See [LICENSE](LICENSE) and [NOTICE](NOTICE).
 
-**Selected developer interfaces and evidence tooling are open source. The Ryntra
-product remains proprietary.** The production application, its infrastructure,
-its risk and policy logic, its strategies and its provider adapters are not in
-this repository and are not published. Ryntra is not an open-source company, and
-nothing here is a hosted service.
+Selected developer interfaces and evidence tooling are open source. The Ryntra
+product remains proprietary. The code included here is Apache-2.0. The hosted
+application, operational infrastructure and live execution services are separate.
