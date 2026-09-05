@@ -901,7 +901,7 @@ export const PAYOUT_RECEIPT_REQUIRED_LIMITATIONS = [
  *
  * ## Why the lifecycle state is inside the sealed bytes
  *
- * Canon §16's rule is that Arc finality is not crosschain completion. A receipt
+ * Arc finality is not crosschain completion. A receipt
  * that carried amounts and hashes without the state they belong to would let a
  * reader supply the missing half themselves, and the half they supply is
  * "so it worked". `lifecycleState` is `RECEIPT_ISSUED` — there is no other
@@ -984,8 +984,8 @@ const DecisionSettlementBridgeSchema = z
 /**
  * The five statements a bridge receipt must carry.
  *
- * Three are the boundaries every Ryntra receipt has. The fourth is canon §16's
- * rule, in the sealed bytes rather than on a page — a receipt is the artifact
+ * Three are the boundaries every Ryntra receipt has. The fourth distinguishes
+ * Arc finality from crosschain completion in the sealed bytes — a receipt is the artifact
  * most likely to be read years later by somebody who never saw the screen it
  * came from. The fifth names who actually moved the value, because a document
  * describing a burn and a mint that Ryntra recorded reads, to a hurried
